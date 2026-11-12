@@ -14,3 +14,7 @@ work/
 *.enc
 *.key
 
+
+web-build/
+web/assets.generated.mjs
+.sites-runtime/

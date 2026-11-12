@@ -22,7 +22,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { demo, blank, anchor, koreanDate, ranges, type Dataset } from "./data";
-import { privateHost, api, readData, type Status } from "./api";
+import { privateHost, hosted, api, readData, type Status } from "./api";
 import { Button } from "./components/ui/button";
 import { Dialog } from "./ui";
 import { Dashboard } from "./Dashboard";
@@ -114,6 +114,8 @@ function App() {
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [password, pw] = useState(""),
+    [passwordConfirm, confirmPassword] = useState(""),
+    [changePassword, setChangePassword] = useState(false),
     [confirmDelete, confirm] = useState(false);
   const file = useRef<HTMLInputElement>(null),
     [key, detail] = path.split("/"),
@@ -135,6 +137,7 @@ function App() {
     if (epoch !== privateRef.current) return;
     if (!st.authenticated) {
       clearPrivate();
+      setStatus(st);
       return;
     }
     const [p, snapshot] = await Promise.all([
@@ -187,6 +190,7 @@ function App() {
           return;
         }
         if (next.error) setError(next.error);
+        setStatus(next);
         if (
           data.source === "coros" &&
           next.hasData &&
@@ -197,7 +201,7 @@ function App() {
         if (live) setError(errMsg(e));
       }
     };
-    const timer = setInterval(check, 60000);
+    const timer = setInterval(check, hosted ? 15000 : 60000);
     window.addEventListener("focus", check);
     return () => {
       live = false;
@@ -229,7 +233,10 @@ function App() {
   const login = (e: FormEvent) => {
     e.preventDefault();
     void task(async () => {
-      await api("login", { password });
+      if (hosted && status.setupRequired && password !== passwordConfirm)
+        throw new Error("두 비밀번호가 일치하지 않습니다.");
+      await api(status.setupRequired ? "setup" : "login", { password });
+      confirmPassword("");
       pw("");
       await loadPrivate();
     });
@@ -237,12 +244,14 @@ function App() {
   const refresh = () =>
     void task(async () => {
       if (privateHost) {
-        if (status.canSync) await api("sync", {});
+        const synced = status.canSync ? await api<Status>("sync", {}) : null;
         await loadPrivate();
         setNotice(
-          status.canSync
-            ? "COROS 동기화를 완료했습니다."
-            : "저장된 COROS 기록을 다시 읽었습니다.",
+          synced?.syncing
+            ? "COROS 기록을 가져오고 있습니다. 완료되면 자동으로 표시됩니다."
+            : status.canSync
+              ? "COROS 동기화를 완료했습니다."
+              : "저장된 COROS 기록을 다시 읽었습니다.",
         );
       } else {
         setData(demo);
@@ -341,21 +350,51 @@ function App() {
               <span className="loginIcon">
                 <LockKeyhole size={26} />
               </span>
-              <h1>개인 기록 로그인</h1>
-              <p>개인 서버를 시작한 터미널에 표시된 비밀번호를 입력하세요.</p>
+              <h1>
+                {status.setupRequired
+                  ? "입장 비밀번호 설정"
+                  : "개인 기록 로그인"}
+              </h1>
+              <p>
+                {hosted
+                  ? status.setupRequired
+                    ? "다른 기기에서도 사용할 입장 비밀번호를 12자 이상으로 설정하세요."
+                    : "설정한 입장 비밀번호를 입력하세요."
+                  : "개인 서버를 시작한 터미널에 표시된 비밀번호를 입력하세요."}
+              </p>
               <form className="form" onSubmit={login}>
                 <label>
-                  실행 비밀번호
+                  {hosted ? "입장 비밀번호" : "실행 비밀번호"}
                   <input
                     required
-                    autoComplete="current-password"
+                    minLength={status.setupRequired ? 12 : undefined}
+                    maxLength={256}
+                    autoComplete={
+                      status.setupRequired ? "new-password" : "current-password"
+                    }
                     type="password"
                     value={password}
                     onChange={(e) => pw(e.target.value)}
                   />
                 </label>
+                {status.setupRequired && (
+                  <label>
+                    비밀번호 확인
+                    <input
+                      required
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={12}
+                      maxLength={256}
+                      value={passwordConfirm}
+                      onChange={(e) => confirmPassword(e.target.value)}
+                    />
+                  </label>
+                )}
                 <Button variant="default" disabled={busy}>
-                  개인 대시보드 열기
+                  {status.setupRequired
+                    ? "설정하고 시작하기"
+                    : "개인 대시보드 열기"}
                 </Button>
               </form>
             </section>
@@ -475,6 +514,88 @@ function App() {
           )}
         </div>
       </main>
+      {hosted && !locked && !data.syncedAt && (
+        <div className="connectBanner">
+          <p>
+            {status.syncing
+              ? "COROS 기록을 가져오고 있습니다. 완료되면 자동으로 표시됩니다."
+              : status.canSync
+                ? "COROS 계정이 연결됐습니다. 새로고침으로 기록을 가져오세요."
+                : "COROS 계정을 연결하면 러닝과 건강 기록을 가져옵니다."}
+          </p>
+          <Button
+            disabled={busy || status.syncing}
+            onClick={() => (status.canSync ? refresh() : setMenu(true))}
+            variant="default"
+          >
+            {status.syncing
+              ? "동기화 중"
+              : status.canSync
+                ? "새로고침"
+                : "COROS 연결하기"}
+          </Button>
+        </div>
+      )}
+      {hosted && !locked && (
+        <p className="webSyncNote">
+          접속 중 15분마다 갱신 · 새로고침 버튼으로 즉시 조회
+        </p>
+      )}
+      {changePassword && (
+        <Dialog
+          title="입장 비밀번호 변경"
+          close={() => {
+            setChangePassword(false);
+            pw("");
+            confirmPassword("");
+          }}
+        >
+          <form
+            className="form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void task(async () => {
+                if (password !== passwordConfirm)
+                  throw new Error("두 비밀번호가 일치하지 않습니다.");
+                await api("password", { password });
+                setChangePassword(false);
+                clearPrivate();
+                await loadPrivate();
+                setNotice(
+                  "비밀번호를 변경했습니다. 새 비밀번호로 로그인하세요.",
+                );
+              });
+            }}
+          >
+            <label>
+              새 비밀번호
+              <input
+                required
+                type="password"
+                autoComplete="new-password"
+                minLength={12}
+                maxLength={256}
+                value={password}
+                onChange={(e) => pw(e.target.value)}
+              />
+            </label>
+            <label>
+              비밀번호 확인
+              <input
+                required
+                type="password"
+                autoComplete="new-password"
+                value={passwordConfirm}
+                onChange={(e) => confirmPassword(e.target.value)}
+              />
+            </label>
+            {error && <p role="alert">{error}</p>}
+            <Button variant="default" disabled={busy}>
+              변경하고 모든 기기 로그아웃
+            </Button>
+          </form>
+        </Dialog>
+      )}
       {menu && (
         <Dialog
           title="데이터 관리"
@@ -500,7 +621,7 @@ function App() {
               <ShieldCheck size={19} />
               <p>
                 {!privateHost
-                  ? "공개 화면에는 예시 기록이 표시됩니다. 실제 COROS 기록은 이 컴퓨터의 개인 서버에서 확인하세요."
+                  ? "실제 기록은 개인 웹 대시보드에서 로그인 후 확인하세요."
                   : locked
                     ? "로그인 후 개인 기록에 접근할 수 있습니다."
                     : data.source === "fit"
@@ -510,6 +631,16 @@ function App() {
             </div>
             {!privateHost ? (
               <>
+                <Button asChild variant="default">
+                  <a
+                    href="https://coros-personal-dashboard.hwan22.chatgpt.site"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    개인 웹 대시보드 열기
+                    <ArrowUpRight size={15} />
+                  </a>
+                </Button>
                 <code>node server/start.mjs</code>
                 <Button asChild variant="default">
                   <a
@@ -595,6 +726,29 @@ function App() {
                   <LogOut size={16} />
                   로그아웃
                 </Button>
+                {hosted && (
+                  <>
+                    <Button
+                      onClick={() => {
+                        setChangePassword(true);
+                        pw("");
+                        confirmPassword("");
+                        setMenu(false);
+                      }}
+                    >
+                      <LockKeyhole size={16} />
+                      입장 비밀번호 변경
+                    </Button>
+                    <Button asChild>
+                      <a
+                        target="_top"
+                        href="/signout-with-chatgpt?return_to=%2F"
+                      >
+                        계정 로그아웃
+                      </a>
+                    </Button>
+                  </>
+                )}
                 <Button onClick={() => confirm(true)}>
                   연결 해제 및 개인 데이터 삭제
                 </Button>

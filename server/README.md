@@ -8,7 +8,7 @@ Node.js 22.18 이상에서 프로젝트 루트의 프런트엔드를 빌드한 �
 
 ```sh
 npm ci
-npm run build
+npm run build:pages
 node server/start.mjs
 ```
 

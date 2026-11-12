@@ -1,6 +1,7 @@
 import type { Dataset } from "./data";
+export const hosted = import.meta.env.MODE === "hosted";
 export const privateHost =
-  location.hostname === "127.0.0.1" && location.port === "4178";
+  hosted || (location.hostname === "127.0.0.1" && location.port === "4178");
 export type Status = {
   authenticated: boolean;
   connected?: boolean;
@@ -8,6 +9,8 @@ export type Status = {
   hasData?: boolean;
   lastSync?: string;
   error?: string;
+  setupRequired?: boolean;
+  syncing?: boolean;
 };
 export async function api<T>(route: string, body?: object): Promise<T> {
   const response = await fetch("/api/" + route, {
