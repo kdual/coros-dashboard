@@ -25,13 +25,50 @@ const trusted = new Set([
 const scope = "openid offline_access mcp.tools";
 
 async function request(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    redirect: "error",
-    signal: AbortSignal.timeout(25000),
-  });
-  if (!response.ok)
-    throw new Error("COROS 요청 실패 (" + response.status + ")");
+  const path = new URL(url).pathname;
+  const stage = path.includes("well-known")
+    ? "인증 서버 조회"
+    : path.includes("register")
+      ? "앱 등록"
+      : path.includes("token")
+        ? "인증 처리"
+        : "기록 조회";
+  let response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      redirect: "manual",
+      signal: AbortSignal.timeout(25000),
+    });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "coros_network_error",
+        stage,
+        name: error.name,
+        message: error.message,
+      }),
+    );
+    throw Object.assign(
+      new Error(
+        "COROS " + stage + "에 실패했습니다. 잠시 후 다시 연결해 주세요.",
+      ),
+      { status: 502 },
+    );
+  }
+  if (!response.ok) {
+    console.error(
+      JSON.stringify({
+        event: "coros_http_error",
+        stage,
+        status: response.status,
+      }),
+    );
+    throw Object.assign(
+      new Error("COROS " + stage + " 실패 (HTTP " + response.status + ")"),
+      { status: 502 },
+    );
+  }
   return response;
 }
 function checkedUrl(value, origin) {
@@ -51,7 +88,11 @@ export async function startOAuth(dashboardOrigin) {
     await request(gateway + "/.well-known/openid-configuration")
   ).json();
   const origin = discovery.issuer?.replace(/\/$/, "");
-  if (!trusted.has(origin)) throw new Error("알 수 없는 COROS 리전");
+  if (!trusted.has(origin))
+    throw Object.assign(
+      new Error("COROS 인증 서버의 리전을 확인하지 못했습니다."),
+      { status: 502 },
+    );
   const registration = checkedUrl(discovery.registration_endpoint, origin);
   const authorize = checkedUrl(discovery.authorization_endpoint, origin);
   const tokenUrl = checkedUrl(discovery.token_endpoint, origin);

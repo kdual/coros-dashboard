@@ -322,6 +322,14 @@ export default {
         },
       });
     } catch (e) {
+      console.error(
+        JSON.stringify({
+          event: "dashboard_request_failed",
+          path: url.pathname,
+          name: e.name,
+          message: e.message,
+        }),
+      );
       return json(
         {
           error: e.status
