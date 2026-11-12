@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env*
+!.env.example
+*.fit
+*.FIT
+*.gpx
+*.tcx
+*.db*
+.private/
+work/
+*.log
+*.vault
+*.enc
+*.key
+
