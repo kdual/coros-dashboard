@@ -58,7 +58,7 @@ assert.equal(
   (
     await request("setup", {
       method: "POST",
-      body: { password: "test password long" },
+      body: { password: "test-12345" },
       from: "https://evil.example",
     })
   ).status,
@@ -71,7 +71,7 @@ assert.equal(
 assert.equal((await (await request("status")).json()).setupRequired, true);
 const setup = await request("setup", {
   method: "POST",
-  body: { password: "test password long" },
+  body: { password: "test-12345" },
 });
 assert.equal(setup.status, 200);
 const cookie = setup.headers.get("set-cookie").split(";")[0];
@@ -124,7 +124,7 @@ assert.deepEqual(
 );
 for (const value of env.BUCKET.entries.values()) {
   const text = new TextDecoder().decode(value.body);
-  assert(!text.includes("test password long"));
+  assert(!text.includes("test-12345"));
   assert(!text.includes("테스트 계획"));
 }
 const left = await readState(env, "owner"),
@@ -137,7 +137,7 @@ assert.equal(
     await request("password", {
       method: "POST",
       cookie,
-      body: { password: "new test password" },
+      body: { password: "new-123456" },
     })
   ).status,
   200,
@@ -147,14 +147,14 @@ assert.equal(
   (
     await request("login", {
       method: "POST",
-      body: { password: "test password long" },
+      body: { password: "test-12345" },
     })
   ).status,
   401,
 );
 const login = await request("login", {
   method: "POST",
-  body: { password: "new test password" },
+  body: { password: "new-123456" },
 });
 assert.equal(login.status, 200);
 const updatedCookie = login.headers.get("set-cookie").split(";")[0];
@@ -187,7 +187,7 @@ assert.equal(
   (
     await request("login", {
       method: "POST",
-      body: { password: "new test password" },
+      body: { password: "new-123456" },
     })
   ).status,
   429,

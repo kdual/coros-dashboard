@@ -358,7 +358,7 @@ function App() {
               <p>
                 {hosted
                   ? status.setupRequired
-                    ? "다른 기기에서도 사용할 입장 비밀번호를 12자 이상으로 설정하세요."
+                    ? "다른 기기에서도 사용할 입장 비밀번호를 10자 이상으로 설정하세요."
                     : "설정한 입장 비밀번호를 입력하세요."
                   : "개인 서버를 시작한 터미널에 표시된 비밀번호를 입력하세요."}
               </p>
@@ -367,7 +367,7 @@ function App() {
                   {hosted ? "입장 비밀번호" : "실행 비밀번호"}
                   <input
                     required
-                    minLength={status.setupRequired ? 12 : undefined}
+                    minLength={status.setupRequired ? 10 : undefined}
                     maxLength={256}
                     autoComplete={
                       status.setupRequired ? "new-password" : "current-password"
@@ -384,7 +384,7 @@ function App() {
                       required
                       type="password"
                       autoComplete="new-password"
-                      minLength={12}
+                      minLength={10}
                       maxLength={256}
                       value={passwordConfirm}
                       onChange={(e) => confirmPassword(e.target.value)}
@@ -573,7 +573,7 @@ function App() {
                 required
                 type="password"
                 autoComplete="new-password"
-                minLength={12}
+                minLength={10}
                 maxLength={256}
                 value={password}
                 onChange={(e) => pw(e.target.value)}

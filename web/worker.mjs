@@ -124,8 +124,8 @@ async function api(request, env, ctx, user, url) {
       fail("비밀번호를 확인해 주세요.");
     if (action === "setup") {
       if (s.password) fail("이미 비밀번호를 설정했습니다.", 409);
-      if (p.password.length < 12)
-        fail("비밀번호는 12자 이상으로 설정해 주세요.");
+      if (p.password.length < 10)
+        fail("비밀번호는 10자 이상으로 설정해 주세요.");
       const salt = token();
       s.password = { salt, hash: await passwordHash(p.password, salt) };
     } else {
@@ -252,10 +252,10 @@ async function api(request, env, ctx, user, url) {
     const p = await body(request);
     if (
       typeof p.password !== "string" ||
-      p.password.length < 12 ||
+      p.password.length < 10 ||
       p.password.length > 256
     )
-      fail("비밀번호는 12~256자로 설정해 주세요.");
+      fail("비밀번호는 10~256자로 설정해 주세요.");
     const salt = token();
     s.password = { salt, hash: await passwordHash(p.password, salt) };
     s.sessions = [];
